@@ -1,0 +1,107 @@
+/* Hallmark · theme: Cobalt (dark) · modern-minimal · instrument panel
+ * tokens.css — 锁定 token 块。页面 CSS 只按名字引用，禁止内联取值。
+ * 暗色配方（color.md § Dark mode recipe）：锚点色相不变（~256），
+ * 纸面 L 12–18% / 墨色 L 92–96% / 主色降 chroma、提 L / 层级越高越亮。 */
+
+/* 自定义 token 与 Element Plus 映射：同时命中 :root 与 html.dark，
+ * 保证加载顺序靠后的本文件覆盖 Element Plus 自带的暗色变量。 */
+:root,
+html.dark {
+  /* ── Cobalt 暗色板（OKLCH，冷工程深色纸面 + 电光蓝点缀）── */
+  --color-paper:      #06090F;   /* 冷工程深底 — 永不用纯黑 */
+  --color-paper-2:    #0B1016;   /* 淡冷色带 */
+  --color-paper-3:    #11161E;   /* 抬升冷表面（层级越高越亮） */
+  --color-rule:       #20242B;   /* 发丝分隔线 */
+  --color-rule-2:     #30363D;
+  --color-muted:      #80878F;   /* 说明/元信息 */
+  --color-neutral:    #9A9FA6;
+  --color-ink-2:      #C0C4CB;   /* 正文 */
+  --color-ink:        #E4E8ED;   /* 主文字 — 永不用纯白 */
+  --color-accent:     #3F8FF4;   /* 电光蓝（提亮降饱和） */
+  --color-accent-ink: #060B14;   /* 点缀上的深色文字 */
+  --color-focus:      #3F8FF4;
+  --color-graphite:   #020306;   /* 深色代码卡地面（比纸面更深） */
+  --color-success:    #50B584;
+  --color-danger:     #EA6B5E;
+
+  /* ── 字体（离线栈：Segoe UI 显示+正文，Cascadia Mono 数据）── */
+  --font-display: "Segoe UI Variable Display", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  --font-body:    "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  --font-mono:    "Cascadia Mono", "Cascadia Code", Consolas, monospace;
+
+  --display-weight: 600;
+  --tracking-display: -0.02em;
+  --tracking-label: 0.08em;
+
+  /* ── 4pt 间距刻度 ── */
+  --space-3xs: 0.25rem;
+  --space-2xs: 0.5rem;
+  --space-xs:  0.75rem;
+  --space-sm:  1rem;
+  --space-md:  1.5rem;
+  --space-lg:  2rem;
+  --space-xl:  3rem;
+  --space-2xl: 4.5rem;
+
+  /* ── 字号刻度（大三度 1.25）── */
+  --text-xs:   0.75rem;
+  --text-sm:   0.8rem;
+  --text-base: 0.875rem;
+  --text-md:   1.125rem;
+  --text-lg:   1.375rem;
+  --text-xl:   1.75rem;
+
+  /* ── 动效 ── */
+  --ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:    cubic-bezier(0.7, 0, 0.84, 0);
+  --dur-short:  180ms;
+  --dur-med:    300ms;
+
+  /* ── 圆角 — 紧凑工程风 ── */
+  --radius-xs:   4px;
+  --radius-sm:   6px;
+  --radius-md:   8px;
+  --radius-pill: 999px;
+
+  /* ── 结构尺寸 ── */
+  --header-h: 52px;
+  --conn-h: 56px;
+  --nav-w: 88px;             /* 左侧导航栏宽度 */
+  --data-h: 400px;          /* 底部固定数据展示区高度（现为最小高度参考） */
+
+  /* ── 额外语义色 ── */
+  --color-code-text: #D3D8DE;        /* 深色代码卡文字 */
+
+  /* ── Element Plus 变量 → Cobalt 暗色映射 ── */
+  --el-color-primary:            var(--color-accent);
+  --el-color-primary-light-3:    #2F79D6;   /* hover 等：比主色略深 */
+  --el-color-primary-light-5:    #2368BD;
+  --el-color-primary-light-7:    #1B549B;
+  --el-color-primary-light-8:    #194781;
+  --el-color-primary-light-9:    #173A68;
+  --el-color-primary-dark-2:     #56A5FF;
+  --el-color-success:            var(--color-success);
+  --el-color-danger:             var(--color-danger);
+  --el-color-error:              var(--color-danger);
+  --el-color-info:               var(--color-muted);
+  --el-bg-color:                 var(--color-paper);
+  --el-bg-color-page:            var(--color-paper-2);
+  --el-bg-color-overlay:         var(--color-paper);
+  --el-fill-color:               var(--color-paper-3);
+  --el-fill-color-light:         var(--color-paper-2);
+  --el-fill-color-blank:         var(--color-paper);
+  --el-border-color:             var(--color-rule);
+  --el-border-color-light:       var(--color-rule);
+  --el-border-color-lighter:     var(--color-rule);
+  --el-border-color-extra-light: var(--color-rule);
+  --el-border-color-hover:       var(--color-rule-2);
+  --el-text-color-primary:       var(--color-ink);
+  --el-text-color-regular:       var(--color-ink-2);
+  --el-text-color-secondary:     var(--color-muted);
+  --el-text-color-placeholder:   var(--color-muted);
+  --el-text-color-disabled:      var(--color-neutral);
+  --el-border-radius-base:       var(--radius-sm);
+  --el-border-radius-small:      var(--radius-xs);
+  --el-font-family:              var(--font-body);
+  --el-font-size-base:           13px;
+}

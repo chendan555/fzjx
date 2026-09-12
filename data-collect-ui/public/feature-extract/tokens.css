@@ -1,0 +1,92 @@
+/* Hallmark · genre: editorial (Almanac 结构) · macrostructure: Split Studio · theme: Cobalt (dark) · mode: dark · nav: N3 · footer: Ft2
+ * tone: technical/austere（军工 · 简约大气 · 暗色）· audience: 军工/弹道工程人员 · use: 表名列表 → 解析表格数据
+ * Hallmark · pre-emit critique: P5 H4 E5 S5 R5 V5
+ */
+/* Cobalt 暗色主题令牌 —— 取值与 data-collect-ui/src/styles/tokens.css 一致（hue 256），
+ * 另补该构建所需令牌：error / backdrop / active / 动效时长与缓动 / z 轴 / 圆角。 */
+
+:root {
+  /* ── 色彩（Cobalt 暗色 · 冷工程深底 · hue 256）────────────── */
+  --color-paper:    #06090F;
+  --color-paper-2:  #0B1016;
+  --color-paper-3:  #11161E;
+  --color-rule:     #20242B;
+  --color-rule-2:   #30363D;
+  --color-muted:    #80878F;
+  --color-neutral:  #9A9FA6;
+  --color-ink-2:    #C0C4CB;
+  --color-ink:      #E4E8ED;
+  --color-accent:     #3F8FF4;
+  --color-accent-ink: #060B14;
+  --color-focus:      #3F8FF4;
+  --color-error:      #EA6B5E;
+  --color-backdrop:   #01020499;
+  --color-active:     #131D2B;   /* 选中表项/行 —— 抬升冷表面 */
+  --color-active-ink: #E4E8ED;
+
+  /* ── 字体（与项目一致：Segoe UI 显示+正文，Cascadia Mono 数据；离线栈）── */
+  --font-display: "Segoe UI Variable Display", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  --font-body:    "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  --font-label:   "Cascadia Mono", "Cascadia Code", Consolas, monospace;
+  --font-mono:    "Cascadia Mono", "Cascadia Code", Consolas, monospace;
+
+  --display-weight: 600;
+
+  /* ── 字号（1.25 比率，正文 17px 起）───────────────────────── */
+  --text-xs:   0.8125rem;
+  --text-sm:   0.9375rem;
+  --text-base: 1.0625rem;
+  --text-md:   1.25rem;
+  --text-lg:   1.5rem;
+  --text-xl:   1.75rem;
+  --text-2xl:  2.25rem;
+  --text-display-s: clamp(1.75rem, 2vw + 1.25rem, 2.75rem);
+
+  --tracking-display: -0.014em;
+  --tracking-tight:   -0.005em;
+  --tracking-label:   0.06em;
+
+  --lh-tight:  1.1;
+  --lh-snug:   1.22;
+  --lh-normal: 1.5;
+
+  /* ── 间距（4pt 九阶）─────────────────────────────────────── */
+  --space-3xs: 0.125rem;
+  --space-2xs: 0.25rem;
+  --space-xs:  0.5rem;
+  --space-sm:  0.75rem;
+  --space-md:  1rem;
+  --space-lg:  1.5rem;
+  --space-xl:  2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4.5rem;
+
+  --section-gap: 5.5rem;
+  --section-head-gap: 1.25rem;
+  --measure: 64ch;
+  --page-max: 84rem;
+  --page-gutter: clamp(1rem, 4vw, 1.5rem);
+  --rail-w: 17rem;                            /* N3 侧栏宽度 */
+
+  /* ── 形状 ────────────────────────────────────────────────── */
+  --radius-input: 0px;   /* Almanac：技术主题，直角即语言 */
+  --rule-weight: 1px;
+
+  /* ── 动效（Almanac 0.85×，缓动仅三条）────────────────────── */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:     cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 100ms;
+  --dur-short: 190ms;
+  --dur-long:  360ms;
+  --dur-modal: 255ms;        /* 弹框开（300ms 桶 × Almanac 0.85×） */
+  --dur-modal-close: 190ms;  /* 弹框合（约 75%） */
+
+  /* ── z 轴（六级命名）─────────────────────────────────────── */
+  --z-base:     1;
+  --z-raised:   10;
+  --z-dropdown: 100;
+  --z-sticky:   200;
+  --z-modal:    400;
+  --z-toast:    500;
+}

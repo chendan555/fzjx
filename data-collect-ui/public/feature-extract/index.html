@@ -1,0 +1,1994 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="cobalt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DataCollect · 弹道特征点提取</title>
+<meta name="description" content="弹道特征点提取：左侧数据库表名列表（后端真实数据），选择后右侧按导弹遥测 15 字段表头展示解析数据，支持抛面曲线与等距坐标。">
+<link rel="stylesheet" href="tokens.css">
+<style>
+/* Hallmark · genre: editorial (Almanac 结构) · macrostructure: Split Studio · theme: Cobalt (dark) · mode: dark · nav: N3 · footer: Ft2
+ * 业务版：数据源 = data-collect-web 后端 REST，与「仿真数据解析」共用服务端连接；
+ * 本页业务逻辑独立：右侧按导弹遥测 15 字段表头展示（与仿真页的通用 JSON 视图不同）。 */
+
+/* ── 基础 ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { overflow-x: clip; }
+body { overflow-x: clip; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--lh-normal);
+  padding-bottom: max(0rem, env(safe-area-inset-bottom));
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* ── 双栏对开（Split Studio 15）─────────────────────── */
+.app {
+  display: grid;
+  grid-template-columns: var(--rail-w) minmax(0, 1fr);
+  min-height: 100vh;        /* 老浏览器（<Chrome 108）回退 */
+  min-height: 100dvh;
+}
+
+/* ── N3 · 侧栏（真实表名列表）────────────────────────── */
+.rail {
+  position: sticky;
+  top: 0;
+  height: 100vh;        /* 老浏览器（<Chrome 108）回退 */
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-paper-2);
+  border-right: var(--rule-weight) solid var(--color-rule);
+  padding: var(--space-md);
+  gap: var(--space-sm);
+}
+.rail__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-2xs);
+}
+.wordmark {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-ink);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.wordmark__sub {
+  font-family: var(--font-body);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  margin-left: var(--space-2xs);
+}
+.rail__db {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.rail__search input {
+  width: 100%;
+  height: 44px;
+  padding: 0 var(--space-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border: var(--rule-weight) solid var(--color-rule-2);
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+}
+.rail__search input::placeholder { color: var(--color-muted); }
+.rail__search input:hover { background: var(--color-paper-3); }
+.rail__search input:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+  border-color: var(--color-ink-2);
+}
+
+.rail__h {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--display-weight);
+  letter-spacing: var(--tracking-label);
+  margin: var(--space-xs) 0 0;
+}
+.rail__count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--color-neutral);
+}
+.rail__refresh {
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  color: var(--color-accent-ink);
+  background: none;
+  border: 0;
+  padding: var(--space-xs) var(--space-2xs);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--dur-micro) var(--ease-out);
+}
+.rail__refresh:hover { text-decoration: underline; text-underline-offset: 2px; }
+
+.rail__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+.rail__item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: var(--space-sm);
+  font: inherit;
+  font-size: var(--text-base);
+  font-family: var(--font-mono);
+  text-align: left;
+  color: var(--color-ink);
+  background: none;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  transition: background-color var(--dur-micro) var(--ease-out);
+}
+.rail__item:hover { background: var(--color-paper-3); }
+.rail__item:active { transform: translateY(1px); }
+.rail__item.is-active {
+  background: var(--color-active);
+  color: var(--color-active-ink);
+}
+
+.rail__foot {
+  border-top: var(--rule-weight) solid var(--color-rule);
+  padding-top: var(--space-sm);
+}
+.rail__status {
+  font-size: var(--text-sm);
+  color: var(--color-neutral);
+  margin: 0 0 var(--space-2xs);
+}
+.rail__status .mono { font-family: var(--font-mono); }
+.rail__status.is-off { color: var(--color-muted); }
+.rail__status .dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 999px;
+  margin-right: var(--space-2xs);
+  background: var(--color-muted);
+}
+.rail__status.is-on .dot { background: var(--color-success); }
+.rail__fine {
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  margin: 0;
+}
+
+/* 移动端：列表换成下拉（N3 折叠） */
+.rail__select { display: none; }
+
+/* ── 工作区（右侧解析数据）───────────────────────────── */
+.workspace {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-lg) var(--space-xl) var(--space-xl);
+  min-width: 0;
+}
+.ws-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-md);
+}
+.ws-title {
+  font-size: var(--text-lg);
+  font-weight: var(--display-weight);
+  letter-spacing: var(--tracking-tight);
+  margin: 0;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.ws-meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--color-neutral);
+  margin: var(--space-2xs) 0 0;
+}
+.ws-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+.ws-actions label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+  color: var(--color-neutral);
+}
+.ws-actions select {
+  height: 44px;
+  padding: 0 var(--space-lg) 0 var(--space-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border: var(--rule-weight) solid var(--color-rule-2);
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+}
+.ws-actions select:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+  border-color: var(--color-ink-2);
+}
+
+.btn {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 700;
+  white-space: nowrap;
+  min-height: 44px;
+  padding: 0 var(--space-lg);
+  color: var(--color-paper);
+  background: var(--color-ink);
+  border: var(--rule-weight) solid var(--color-ink);
+  cursor: pointer;
+  transition: background-color var(--dur-short) var(--ease-out);
+}
+.btn:hover { background: var(--color-ink-2); }
+.btn:active { transform: translateY(1px); }
+.btn--ghost {
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border-color: var(--color-rule-2);
+}
+.btn--ghost:hover { background: var(--color-paper-3); }
+.btn:disabled,
+.btn--ghost:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ── 数据表格（15 字段宽表，容器内横向滚动）────────── */
+.table-wrap {
+  flex: 1;
+  border: var(--rule-weight) solid var(--color-rule);
+  background: var(--color-paper);
+  min-width: 0;
+}
+.table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.data-table {
+  width: 100%;
+  min-width: 1180px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.data-table th {
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-muted);
+  text-align: left;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: var(--rule-weight) solid var(--color-rule-2);
+  white-space: nowrap;
+}
+.data-table th .th-unit {
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+}
+.data-table td {
+  padding: var(--space-xs) var(--space-md);
+  border-bottom: var(--rule-weight) solid var(--color-rule);
+  white-space: nowrap;
+}
+.data-table tbody tr[tabindex] { cursor: pointer; }
+.data-table tbody tr[tabindex]:hover { background: var(--color-paper-2); }
+.data-table tbody tr[tabindex]:active { background: var(--color-paper-3); }
+.data-table tbody tr[tabindex]:focus-visible { outline-offset: -2px; }
+.data-table .c-time { font-family: var(--font-mono); font-size: var(--text-sm); }
+.data-table .c-mid { font-family: var(--font-mono); font-size: var(--text-sm); }
+.data-table .c-text { font-size: var(--text-sm); }
+.data-table .c-num {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  text-align: right;
+}
+.data-table .c-phase { font-size: var(--text-sm); color: var(--color-ink-2); }
+.data-table .c-speed { font-weight: 500; }
+.data-table .c-empty { color: var(--color-muted); }
+.detail-row td {
+  background: var(--color-paper-2);
+  padding: var(--space-sm) var(--space-md);
+}
+.detail-row pre {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: var(--color-ink-2);
+  margin: 0;
+  max-height: 16rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.detail-row pre .k { color: var(--color-neutral); }
+
+/* ── 移动端：行卡片（10+ 列表格的规范改型）───────────── */
+.row-cards { display: none; }
+
+.empty {
+  padding: var(--space-2xl) var(--space-md);
+  text-align: left;
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+/* ── 分页 ────────────────────────────────────────────── */
+.ws-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  flex-wrap: wrap;
+}
+.ws-foot .pg-info {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--color-neutral);
+  min-width: 6ch;
+  text-align: center;
+}
+.ws-foot__fine {
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  margin-left: var(--space-md);
+}
+
+/* ── 弹框 · 导弹剖面解析 ─────────────────────────────── */
+dialog.dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(52rem, calc(100% - 2 * var(--page-gutter)));
+  height: fit-content;
+  max-height: min(85vh, 46rem);    /* 老浏览器（<Chrome 108）回退 */
+  max-height: min(85dvh, 46rem);
+  padding: 0;
+  border: var(--rule-weight) solid var(--color-rule-2);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  z-index: var(--z-modal);
+}
+dialog.dialog::backdrop { background: var(--color-backdrop); }
+dialog.dialog[open] { animation: dialog-in var(--dur-modal) var(--ease-out); }
+dialog.dialog.is-closing { animation: dialog-out var(--dur-modal-close) var(--ease-in); }
+@keyframes dialog-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes dialog-out {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: scale(0.98); }
+}
+.dialog__body { padding: var(--space-lg); overflow-y: auto; }
+.dialog__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-2xs);
+}
+.dialog__title {
+  font-size: var(--text-lg);
+  font-weight: var(--display-weight);
+  letter-spacing: var(--tracking-tight);
+  margin: 0;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.dialog__close {
+  font-family: var(--font-label);
+  font-size: var(--text-sm);
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-sm);
+  color: var(--color-ink);
+  background: none;
+  border: var(--rule-weight) solid var(--color-rule-2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--dur-short) var(--ease-out);
+}
+.dialog__close:hover { background: var(--color-paper-3); }
+.dialog__close:active { transform: translateY(1px); }
+.dialog__echo {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-neutral);
+  margin: 0 0 var(--space-md);
+}
+.pos-label {
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+  color: var(--color-muted);
+  margin: 0 0 var(--space-2xs);
+}
+.profile-pos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-sm) var(--space-lg);
+  margin-bottom: var(--space-md);
+}
+.profile-pos .readout {
+  border-top: 2px solid var(--color-ink);
+  padding-top: var(--space-xs);
+  margin: 0;
+}
+.profile-pos dt {
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+  color: var(--color-muted);
+  margin: 0 0 var(--space-3xs);
+}
+.profile-pos dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lh-snug);
+}
+.profile-pos dd .unit {
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--color-neutral);
+  margin-left: var(--space-3xs);
+}
+.curve svg { display: block; width: 100%; height: auto; font-family: var(--font-mono); }
+.curve svg text { font-size: 13px; fill: var(--color-muted); }
+.curve figcaption {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  margin-top: var(--space-2xs);
+}
+.curve-legend {
+  display: flex;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  margin-top: var(--space-xs);
+}
+.curve-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-neutral);
+  white-space: nowrap;
+}
+.curve-legend i {
+  display: inline-block;
+  width: 1rem;
+  height: 0;
+  border-top: 2px solid var(--color-ink);
+  font-style: normal;
+}
+.curve-legend i.dash { border-top: 2px dashed var(--color-accent); }
+.curve-legend .legend-item {
+  transition: opacity var(--dur-micro) var(--ease-out);
+}
+.dialog__fine {
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  margin: var(--space-md) 0 0;
+}
+
+/* ── 距离坐标（发射点 / 目标点等距点，可编辑增删）────── */
+.dist {
+  margin-top: var(--space-md);
+  border-top: var(--rule-weight) solid var(--color-rule);
+  padding-top: var(--space-md);
+}
+.dist__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-2xs);
+  flex-wrap: wrap;
+}
+.dist__controls {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+.dist__pick {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+  color: var(--color-neutral);
+}
+.dist__pick select {
+  height: 44px;
+  padding: 0 var(--space-lg) 0 var(--space-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border: var(--rule-weight) solid var(--color-rule-2);
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+}
+.dist__pick select:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+  border-color: var(--color-ink-2);
+}
+.dist__title {
+  font-size: var(--text-md);
+  font-weight: var(--display-weight);
+  letter-spacing: var(--tracking-tight);
+  margin: 0;
+}
+.btn--sm {
+  padding: 0 var(--space-md);
+  font-size: var(--text-sm);
+}
+.dist__note {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  margin: 0 0 var(--space-sm);
+}
+.dist__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md);
+}
+.dist__label {
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+  color: var(--color-neutral);
+  margin: 0 0 var(--space-2xs);
+}
+.dist__group { min-width: 0; }
+.dist__group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-2xs);
+}
+.dist__group-head .dist__label { margin: 0; }
+.dist__cols {
+  display: grid;
+  grid-template-columns: minmax(4.5rem, 5.5rem) repeat(3, minmax(0, 1fr)) 2.5rem;
+  gap: var(--space-xs);
+  padding-bottom: var(--space-2xs);
+  border-bottom: var(--rule-weight) solid var(--color-rule-2);
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+  color: var(--color-muted);
+  text-align: center;
+}
+.dist__cols span { text-align: center; }
+.dist__cols span:last-child { visibility: hidden; }
+.dist__rows { display: flex; flex-direction: column; }
+.dist__row {
+  display: grid;
+  grid-template-columns: minmax(4.5rem, 5.5rem) repeat(3, minmax(0, 1fr)) 2.5rem;
+  gap: var(--space-xs);
+  align-items: center;
+  padding-block: var(--space-2xs);
+  border-bottom: var(--rule-weight) solid var(--color-rule);
+}
+.dist__input {
+  height: 44px;
+  width: 100%;
+  padding: 0 var(--space-xs);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border: var(--rule-weight) solid var(--color-rule-2);
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+}
+.dist__input::placeholder { color: var(--color-muted); }
+.dist__input:hover { background: var(--color-paper-3); }
+.dist__input:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+  border-color: var(--color-ink-2);
+}
+.dist__coord {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dist__coord.muted { color: var(--color-muted); }
+.dist__del {
+  justify-self: center;
+  width: 44px;
+  height: 44px;
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+  background: none;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-out), background-color var(--dur-micro) var(--ease-out);
+}
+.dist__del:hover { color: var(--color-ink); background: var(--color-paper-3); }
+.dist__del:active { transform: translateY(1px); }
+
+/* ── 页宽容器 ────────────────────────────────────────── */
+.wrap {
+  max-width: var(--page-max);
+  margin-inline: auto;
+  padding-inline: var(--page-gutter);
+}
+
+/* ── Ft2 · 单行内联页脚 ─────────────────────────────── */
+.foot-inline {
+  border-top: var(--rule-weight) solid var(--color-rule);
+  padding-block: var(--space-md) var(--space-lg);
+}
+.foot-inline p {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  margin: 0;
+}
+
+/* ── 动效削减 ────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 150ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 150ms !important;
+  }
+  dialog.dialog[open] { animation: dialog-fade 150ms linear; }
+  dialog.dialog.is-closing { animation: dialog-fade 150ms linear reverse; }
+  @keyframes dialog-fade { from { opacity: 0; } to { opacity: 1; } }
+}
+
+/* ── 响应式（移动优先）───────────────────────────────── */
+@media (max-width: 40rem) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .rail {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: var(--rule-weight) solid var(--color-rule);
+  }
+  .rail__list { display: none; }
+  .rail__select {
+    display: block;
+    height: 44px;
+    width: 100%;
+    padding: 0 var(--space-lg) 0 var(--space-sm);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--color-ink);
+    background: var(--color-paper);
+    border: var(--rule-weight) solid var(--color-rule-2);
+  }
+  .workspace { padding: var(--space-md) var(--space-md) var(--space-xl); }
+  .ws-head { align-items: flex-start; }
+  .ws-actions { width: 100%; }
+  .ws-actions label { flex: 1; min-width: 0; }
+  .ws-actions select { width: 100%; }
+
+  .table-scroll { display: none; }
+  .row-cards {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+  }
+  .row-card {
+    background: var(--color-paper-2);
+    border: var(--rule-weight) solid var(--color-rule);
+    padding: var(--space-sm);
+  }
+  .row-card__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    padding-bottom: var(--space-2xs);
+    border-bottom: var(--rule-weight) solid var(--color-rule);
+    margin-bottom: var(--space-xs);
+  }
+  .row-card__mid { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 500; }
+  .row-card__time { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-muted); }
+  .row-card__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2xs) var(--space-sm);
+  }
+  .row-card__cell dt {
+    font-family: var(--font-label);
+    font-size: 0.75rem;
+    letter-spacing: var(--tracking-label);
+    color: var(--color-muted);
+    margin: 0;
+  }
+  .row-card__cell dd {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+  }
+  .dist__grid { grid-template-columns: minmax(0, 1fr); }
+  .ws-foot__fine { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="rail" aria-label="数据库表列表">
+    <div class="rail__top">
+      <a class="wordmark" href="#">DataCollect<span class="wordmark__sub">特征点提取</span></a>
+      <span class="rail__db">data_collect</span>
+    </div>
+
+    <div class="rail__search">
+      <label for="table-filter" class="visually-hidden">搜索数据表</label>
+      <input id="table-filter" type="search" placeholder="搜索 t 表 / 任务ID" autocomplete="off">
+    </div>
+
+    <p class="rail__h">表列表 <span class="rail__count" id="rail-count">0</span>
+      <button type="button" class="rail__refresh" id="btn-refresh">刷新</button>
+    </p>
+    <select class="rail__select" id="table-select" aria-label="选择数据表"></select>
+    <ul class="rail__list" id="table-list" role="listbox" aria-label="数据库表名"></ul>
+
+    <div class="rail__foot">
+      <p class="rail__status is-off" id="rail-status"><span class="dot"></span><span id="rail-status-text">未连接</span></p>
+      <p class="rail__fine">真实数据 · 与仿真数据解析共用后端连接</p>
+    </div>
+  </aside>
+
+  <main class="workspace">
+    <header class="ws-head">
+      <div>
+        <h1 class="ws-title" id="sel-title">请选择数据表</h1>
+        <p class="ws-meta" id="sel-meta" aria-live="polite"></p>
+      </div>
+      <div class="ws-actions">
+        <label for="platform-filter">发射平台筛选
+          <select id="platform-filter" disabled>
+            <option value="">全部平台</option>
+          </select>
+        </label>
+        <label for="mid-filter">导弹ID筛选
+          <select id="mid-filter" disabled>
+            <option value="">全部导弹</option>
+          </select>
+        </label>
+        <button type="button" class="btn" id="btn-parse" disabled>解析数据</button>
+        <button type="button" class="btn" id="btn-profile" disabled>导弹剖面解析</button>
+        <button type="button" class="btn btn--ghost" id="btn-export" disabled>导出 JSON</button>
+      </div>
+    </header>
+
+    <section class="table-wrap" aria-label="解析后的表格数据">
+      <div class="table-scroll">
+        <table class="data-table">
+          <caption class="visually-hidden">导弹遥测解析结果：当前时间 / 导弹ID / 导弹类型 / 发射平台 / 经度 / 纬度 / 高度 / 北向速度 / 天向速度 / 东向速度 / 滚转角 / 俯仰角 / 偏航角 / 当前阶段 / 合速度</caption>
+          <thead>
+            <tr>
+              <th scope="col">当前时间</th>
+              <th scope="col">导弹ID</th>
+              <th scope="col">导弹类型</th>
+              <th scope="col">发射平台</th>
+              <th scope="col">经度<span class="th-unit">°</span></th>
+              <th scope="col">纬度<span class="th-unit">°</span></th>
+              <th scope="col">高度<span class="th-unit">m</span></th>
+              <th scope="col">北向速度<span class="th-unit">m/s</span></th>
+              <th scope="col">天向速度<span class="th-unit">m/s</span></th>
+              <th scope="col">东向速度<span class="th-unit">m/s</span></th>
+              <th scope="col">滚转角<span class="th-unit">°</span></th>
+              <th scope="col">俯仰角<span class="th-unit">°</span></th>
+              <th scope="col">偏航角<span class="th-unit">°</span></th>
+              <th scope="col">当前阶段</th>
+              <th scope="col">合速度<span class="th-unit">m/s</span></th>
+            </tr>
+          </thead>
+          <tbody id="data-body"></tbody>
+        </table>
+      </div>
+      <div class="row-cards" id="row-cards" aria-label="导弹遥测解析结果"></div>
+      <p class="empty" id="empty" hidden>未连接或未选择数据表 —— 请在上方连接数据库后，从左侧选择一张 t 开头表。</p>
+    </section>
+
+    <footer class="ws-foot">
+      <button type="button" class="btn btn--ghost" id="pg-prev">上一页</button>
+      <span class="pg-info" id="pg-info">—</span>
+      <button type="button" class="btn btn--ghost" id="pg-next">下一页</button>
+      <span class="ws-foot__fine">每页 10 行 · 共 <span id="row-total">0</span> 行</span>
+    </footer>
+  </main>
+</div>
+
+<dialog class="dialog" id="profile-dialog" aria-labelledby="profile-title" tabindex="-1">
+  <div class="dialog__body">
+    <div class="dialog__head">
+      <h2 class="dialog__title" id="profile-title">导弹剖面解析</h2>
+      <button type="button" class="dialog__close" id="profile-close" aria-label="关闭弹框">✕</button>
+    </div>
+    <p class="dialog__echo" id="profile-echo"></p>
+
+    <p class="pos-label">末点位置 · 轨迹最后一个点（真实数据）</p>
+    <dl class="profile-pos" aria-label="末点位置">
+      <div class="readout"><dt>经度</dt><dd id="pos-lon">—<span class="unit">°</span></dd></div>
+      <div class="readout"><dt>纬度</dt><dd id="pos-lat">—<span class="unit">°</span></dd></div>
+      <div class="readout"><dt>高度</dt><dd id="pos-alt">—<span class="unit">m</span></dd></div>
+    </dl>
+
+    <figure class="curve" id="profile-chart" hidden>
+      <svg id="profile-svg" viewBox="0 0 640 320" role="img" aria-label="导弹抛面曲线：高度随水平距离变化">
+        <g id="profile-grid"></g>
+        <g id="profile-paths"></g>
+        <g id="profile-markers"></g>
+        <g id="profile-labels"></g>
+      </svg>
+      <figcaption>抛面曲线 · 高度—水平距离 · 由解析数据中带经纬高的点位绘制</figcaption>
+      <div class="curve-legend" id="profile-legend"></div>
+    </figure>
+
+    <section class="dist" id="dist-section" aria-labelledby="dist-title" hidden>
+      <div class="dist__head">
+        <h3 class="dist__title" id="dist-title">距离坐标</h3>
+        <div class="dist__controls">
+          <label class="dist__pick" for="dist-mid">导弹
+            <select id="dist-mid" aria-label="选择导弹"></select>
+          </label>
+          <button type="button" class="btn btn--ghost btn--sm" id="btn-copy-dist">复制坐标</button>
+          <button type="button" class="btn btn--ghost btn--sm" id="btn-export-xls">导出弹道 Excel</button>
+        </div>
+      </div>
+      <p class="dist__note" id="dist-note"></p>
+      <div class="dist__grid">
+        <div class="dist__group">
+          <div class="dist__group-head">
+            <p class="dist__label">距发射点</p>
+            <button type="button" class="btn btn--ghost btn--sm" data-add="launch">+ 添加</button>
+          </div>
+          <div class="dist__cols" aria-hidden="true"><span>距离 km</span><span>经度 °</span><span>纬度 °</span><span>高度 m</span><span></span></div>
+          <div class="dist__rows" id="dist-rows-launch"></div>
+        </div>
+        <div class="dist__group">
+          <div class="dist__group-head">
+            <p class="dist__label">距目标点（末点）</p>
+            <button type="button" class="btn btn--ghost btn--sm" data-add="target">+ 添加</button>
+          </div>
+          <div class="dist__cols" aria-hidden="true"><span>距离 km</span><span>经度 °</span><span>纬度 °</span><span>高度 m</span><span></span></div>
+          <div class="dist__rows" id="dist-rows-target"></div>
+        </div>
+      </div>
+    </section>
+
+    <p class="dialog__fine" id="profile-empty" hidden>所选表解析数据中缺少带经纬高的点位（至少 2 个），无法绘制抛面。</p>
+    <p class="dialog__fine">基于解析数据的经度 / 纬度 / 高度字段绘制 · 真实数据</p>
+  </div>
+</dialog>
+
+<footer class="foot-inline wrap" aria-hidden="true">
+  <p>弹道特征点提取 · DataCollect 解析平台 · 真实数据 · 2026</p>
+</footer>
+
+<script>
+(() => {
+  "use strict";
+
+  const PAGE_SIZE = 10;
+  const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const $ = (id) => document.getElementById(id);
+
+  /* 等距距离档位（可编辑增删，会话内保持） */
+  const FROM_LAUNCH = [5, 10, 20, 50, 70, 80];
+  const FROM_TARGET = [10, 20, 50, 70, 80, 100, 150];
+
+  const state = {
+    connected: false,
+    tables: [],
+    selected: null,
+    mid: "",
+    plat: "",
+    query: "",
+    page: 0,
+    rows: [],            /* 关联结果：逐轨迹点行 [{弹id, ...}] */
+    series: {},          /* 轨迹时间序列：{弹id: [data对象, ...]} */
+    parsed: false,       /* 是否已点「解析数据」 */
+    loading: false,
+    error: "",
+  };
+  let lastDistData = null;
+  let distSeries = null;
+  let distMissiles = [];
+  let distIndex = 0;
+  let distCtx = null;
+  let profileChart = null; /* 曲线绘制上下文，供下拉切换时高亮 */
+  const DISTS = { launch: [...FROM_LAUNCH], target: [...FROM_TARGET] };
+
+  /* ── 后端 API（与仿真数据解析共用同一服务端连接）────── */
+  async function apiGet(url) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  }
+
+  let lastConnected = false;   /* 连接状态变化时才拉表列表 */
+
+  async function refresh(force) {
+    let connected = false;
+    try {
+      const h = await apiGet("/api/health");
+      connected = !!h.connected;
+    } catch (e) { /* 后端未启动 */ }
+    const changed = connected !== lastConnected;
+    lastConnected = connected;
+    state.connected = connected;
+
+    if (connected) {
+      /* 仅连接变化 / 手动刷新 / 列表为空时拉取表列表，避免每 4 秒重复请求 */
+      if (force || changed || state.tables.length === 0) {
+        try {
+          const t = await apiGet("/api/tables");
+          if (t.ok) {
+            state.tables = t.tables || [];
+            renderRail();
+            if (!state.selected && state.tables.length) {
+              selectTable(state.tables[0]);
+            } else if (state.selected && !state.tables.some((x) => x.name === state.selected.name)) {
+              state.selected = null;
+              state.rows = [];
+              state.series = {};
+              state.parsed = false;
+              renderWorkspace();
+            }
+          }
+        } catch (e) { /* 保持现状 */ }
+      }
+    } else if (state.tables.length || state.selected || state.rows.length) {
+      state.tables = [];
+      state.selected = null;
+      state.rows = [];
+      state.series = {};
+      state.parsed = false;
+      renderRail();
+      renderWorkspace();
+    }
+    renderControls();
+  }
+  setInterval(() => { refresh(false); }, 4000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(false); });
+
+  async function loadRows() {
+    if (!state.selected) return;
+    state.loading = true;
+    state.error = "";
+    renderWorkspace();
+    try {
+      /* 业务逻辑：固定读三个主题，按弹id 关联（后端 /api/feature） */
+      const p = await apiGet("/api/feature?table=" + encodeURIComponent(state.selected.name));
+      if (p.ok) {
+        state.rows = (p.result && p.result.rows) || [];
+        state.series = (p.result && p.result.series) || {};
+        state.parsed = true;
+      } else {
+        state.rows = [];
+        state.series = {};
+        state.parsed = true;
+        state.error = p.message || "关联失败";
+      }
+    } catch (e) {
+      state.rows = [];
+      state.series = {};
+      state.error = "请求异常: " + e.message;
+    }
+    state.loading = false;
+    renderWorkspace();
+  }
+
+  function selectTable(t) {
+    state.selected = t;
+    state.page = 0;
+    state.mid = "";
+    state.plat = "";
+    state.rows = [];       /* 选表不自动解析，点「解析数据」再加载 */
+    state.series = {};
+    state.parsed = false;
+    state.error = "";
+    renderRail();
+    renderControls();
+    renderWorkspace();
+  }
+
+  /* ── 侧栏（真实表名） ────────────────────────────────── */
+  function visibleTables() {
+    const q = state.query.trim().toLowerCase();
+    if (!q) return state.tables;
+    return state.tables.filter((t) => t.name.toLowerCase().includes(q));
+  }
+
+  function renderRail() {
+    const list = visibleTables();
+    const railList = $("table-list");
+    const railSelect = $("table-select");
+    railList.textContent = "";
+    railSelect.textContent = "";
+    $("rail-count").textContent = String(list.length);
+
+    list.forEach((t) => {
+      const li = document.createElement("li");
+      li.className = "rail__item" + (state.selected === t ? " is-active" : "");
+      li.setAttribute("role", "option");
+      li.setAttribute("aria-selected", state.selected === t ? "true" : "false");
+      li.tabIndex = 0;
+      const name = document.createElement("span");
+      name.textContent = t.name;
+      li.append(name);
+      li.addEventListener("click", () => selectTable(t));
+      li.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectTable(t); }
+      });
+      railList.appendChild(li);
+
+      const opt = document.createElement("option");
+      opt.value = t.name;
+      opt.textContent = t.name;
+      railSelect.appendChild(opt);
+    });
+    railSelect.value = state.selected ? state.selected.name : "";
+  }
+
+  function renderControls() {
+    const ready = state.connected && !!state.selected;
+    const hasRows = ready && state.rows.length > 0;
+    $("btn-parse").disabled = !ready;
+    $("btn-profile").disabled = !hasRows;
+    $("btn-export").disabled = !hasRows;
+    $("platform-filter").disabled = !hasRows;
+    $("mid-filter").disabled = !hasRows;
+
+    const st = $("rail-status");
+    st.classList.toggle("is-on", state.connected);
+    st.classList.toggle("is-off", !state.connected);
+    $("rail-status-text").textContent = state.connected
+      ? "已连接后端 · " + state.tables.length + " 张表"
+      : "未连接 — 请在上方连接数据库";
+  }
+
+  /* ── 15 字段映射（按键名从解析数据取值） ─────────────── */
+  function pick(obj, keys) {
+    if (!obj || typeof obj !== "object") return undefined;
+    for (const k of keys) {
+      if (obj[k] !== undefined && obj[k] !== null && String(obj[k]).trim() !== "") return obj[k];
+    }
+    return undefined;
+  }
+  function pickNum(obj, keys) {
+    const v = pick(obj, keys);
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+    if (typeof v === "string" && v.trim() !== "" && Number.isFinite(parseFloat(v))) return parseFloat(v);
+    return null;
+  }
+  function numOrDash(obj, keys) {
+    const v = pickNum(obj, keys);
+    return v === null ? dash : v;
+  }
+  function fmtTimeMs(v) {
+    if (typeof v === "string") return v;
+    const d = new Date(Number(v));
+    if (Number.isNaN(d.getTime())) return String(v);
+    const p = (n, w) => String(n).padStart(w, "0");
+    return `${p(d.getHours(), 2)}:${p(d.getMinutes(), 2)}:${p(d.getSeconds(), 2)}.${p(d.getMilliseconds(), 3)}`;
+  }
+  const dash = "—";
+
+  function mapRow(r) {
+    const d = r;   /* /api/feature 关联行的字段在顶层，无 data 包装 */
+    const m = {
+      time: dash, mid: dash, type: dash, plat: dash,
+      lon: dash, lat: dash, alt: dash,
+      vn: dash, vu: dash, ve: dash,
+      roll: dash, pitch: dash, yaw: dash,
+      phase: dash, speed: dash,
+      fail: d === "[解析失败]" || !d || typeof d !== "object" || Array.isArray(d),
+      raw: d,
+    };
+    if (m.fail) return m;
+    m.time = fmtTimeMs(pick(d, ["当前时间", "时间", "时间戳", "timestamp", "time", "Time"])) || dash;
+    m.mid = pick(d, ["弹id", "弹ID", "弹号", "导弹ID", "导弹编号", "导弹UID", "导弹uid", "导弹id", "导弹Id", "mid", "missileId", "MissileId", "missileUID", "weaponUID", "entityUID", "EntityUID"]) || dash;
+    m.type = pick(d, ["导弹类型", "类型", "type", "Type", "missileType", "entityType", "EntityType", "entity_type"]) || dash;
+    m.plat = pick(d, ["发射平台", "发射平台类型", "平台类型", "平台", "platform", "Platform", "platformType"]) || dash;
+    m.lon = numOrDash(d, ["经度", "lon", "Lon", "longitude"]);
+    m.lat = numOrDash(d, ["纬度", "维度", "lat", "Lat", "latitude"]);
+    m.alt = numOrDash(d, ["高度", "海拔", "alt", "Alt", "H"]);
+    m.vn = numOrDash(d, ["北向速度", "VN", "vn", "Vn", "北速"]);
+    m.vu = numOrDash(d, ["天向速度", "VU", "vu", "Vu", "垂向速度", "天速"]);
+    m.ve = numOrDash(d, ["东向速度", "VE", "ve", "Ve", "东速"]);
+    m.roll = numOrDash(d, ["滚转角", "滚转", "roll", "Roll"]);
+    m.pitch = numOrDash(d, ["俯仰角", "俯仰", "pitch", "Pitch"]);
+    m.yaw = numOrDash(d, ["偏航角", "偏航", "yaw", "Yaw"]);
+    m.phase = pick(d, ["当前阶段", "阶段", "phase", "Phase", "Stage"]) || dash;
+    if (m.vn !== dash && m.vu !== dash && m.ve !== dash) {
+      m.speed = Math.round(Math.sqrt(m.vn * m.vn + m.vu * m.vu + m.ve * m.ve) * 10) / 10;
+    } else {
+      m.speed = numOrDash(d, ["合速度", "速度", "speed", "Speed", "V"]);
+    }
+    return m;
+  }
+
+  /* ── 工作区渲染 ──────────────────────────────────────── */
+  function filteredRows() {
+    let rows = state.rows;
+    if (state.mid) rows = rows.filter((r) => {
+      const m = mapRow(r);
+      return m.mid === state.mid;
+    });
+    if (state.plat) rows = rows.filter((r) => {
+      const m = mapRow(r);
+      return m.plat === state.plat;
+    });
+    return rows;
+  }
+
+  const COLS = [
+    ["time", "c-time"], ["mid", "c-mid"], ["type", "c-text"], ["plat", "c-text"],
+    ["lon", "c-num"], ["lat", "c-num"], ["alt", "c-num"],
+    ["vn", "c-num"], ["vu", "c-num"], ["ve", "c-num"],
+    ["roll", "c-num"], ["pitch", "c-num"], ["yaw", "c-num"],
+    ["phase", "c-phase"], ["speed", "c-num c-speed"],
+  ];
+
+  function fillSelect(id, values, label, current) {
+    const sel = $(id);
+    sel.textContent = "";
+    const first = document.createElement("option");
+    first.value = "";
+    first.textContent = label;
+    sel.appendChild(first);
+    values.forEach((v) => {
+      const opt = document.createElement("option");
+      opt.value = v;
+      opt.textContent = v;
+      sel.appendChild(opt);
+    });
+    sel.value = current;
+  }
+
+  function renderWorkspace() {
+    const t = state.selected;
+    const tbody = $("data-body");
+    const cards = $("row-cards");
+    const title = $("sel-title");
+    const meta = $("sel-meta");
+
+    if (!t) {
+      title.textContent = state.connected ? "请选择数据表" : "请先连接数据库";
+      meta.textContent = state.connected ? "" : "连接位于应用顶部，与仿真数据解析共用";
+      tbody.textContent = "";
+      cards.textContent = "";
+      $("empty").hidden = false;
+      $("pg-info").textContent = "—";
+      $("row-total").textContent = "0";
+      $("pg-prev").disabled = $("pg-next").disabled = true;
+      fillSelect("platform-filter", [], "全部平台", "");
+      fillSelect("mid-filter", [], "全部导弹", "");
+      return;
+    }
+
+    title.textContent = t.name;
+    if (state.loading) {
+      meta.textContent = "解析中…（数据量大时可能需要几秒）";
+    } else if (state.error) {
+      meta.textContent = state.error;
+    } else if (!state.parsed) {
+      meta.textContent = "已选择表 —— 点击右上角「解析数据」加载弹道数据（三主题按弹id关联）";
+    } else {
+      const midsCount = new Set(state.rows.map((r) => r["弹id"]).filter(Boolean)).size;
+      meta.textContent = `${state.rows.length} 条轨迹数据 · ${midsCount} 枚命中弹 · HIT / 发射(MISSILELAUNCHTIME) / 轨迹按弹id 关联`;
+    }
+
+    /* 筛选下拉：从数据里提取导弹ID / 发射平台 取值 */
+    const mids = [...new Set(state.rows.map((r) => mapRow(r).mid).filter((v) => v !== dash))];
+    const plats = [...new Set(state.rows.map((r) => mapRow(r).plat).filter((v) => v !== dash))];
+    fillSelect("platform-filter", plats, "全部平台", state.plat);
+    fillSelect("mid-filter", mids, "全部导弹", state.mid);
+    $("row-total").textContent = String(filteredRows().length);
+
+    const rows = filteredRows().map(mapRow);
+    const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+    if (state.page >= pages) state.page = pages - 1;
+    const slice = rows.slice(state.page * PAGE_SIZE, (state.page + 1) * PAGE_SIZE);
+
+    tbody.textContent = "";
+    cards.textContent = "";
+    if (rows.length === 0) {
+      $("empty").hidden = false;
+      if (state.error) {
+        $("empty").textContent = state.error;
+      } else if (!state.parsed) {
+        $("empty").textContent = "尚未解析 —— 点击右上角「解析数据」加载该表弹道数据。";
+      } else if (state.rows.length === 0) {
+        $("empty").textContent = "该表无命中弹数据（isHit 过滤后为空）。";
+      } else {
+        $("empty").textContent = "无匹配行 —— 调整导弹ID筛选后重试。";
+      }
+      $("pg-info").textContent = "0 / 0";
+      $("pg-prev").disabled = $("pg-next").disabled = true;
+      return;
+    }
+    $("empty").hidden = true;
+
+    slice.forEach((m) => {
+      const tr = document.createElement("tr");
+      tr.tabIndex = 0;
+      tr.setAttribute("aria-label", "点击展开原始解析详情");
+
+      COLS.forEach(([key, cls]) => {
+        const td = document.createElement("td");
+        td.className = cls + (m[key] === dash ? " c-empty" : "");
+        td.textContent = String(m[key]);
+        tr.appendChild(td);
+      });
+      tr.addEventListener("click", () => toggleDetail(tr, m));
+      tr.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleDetail(tr, m); }
+      });
+      tbody.appendChild(tr);
+    });
+
+    /* 移动端卡片 */
+    slice.forEach((m) => {
+      const cardFields = [
+        ["当前时间", m.time], ["导弹ID", m.mid], ["导弹类型", m.type], ["发射平台", m.plat],
+        ["经度 °", m.lon], ["纬度 °", m.lat], ["高度 m", m.alt],
+        ["北向速度 m/s", m.vn], ["天向速度 m/s", m.vu], ["东向速度 m/s", m.ve],
+        ["滚转角 °", m.roll], ["俯仰角 °", m.pitch], ["偏航角 °", m.yaw],
+        ["当前阶段", m.phase], ["合速度 m/s", m.speed],
+      ];
+      const card = document.createElement("article");
+      card.className = "row-card";
+      const head = document.createElement("div");
+      head.className = "row-card__head";
+      const mid = document.createElement("span");
+      mid.className = "row-card__mid";
+      mid.textContent = String(m.mid);
+      const time = document.createElement("span");
+      time.className = "row-card__time";
+      time.textContent = m.time + " · " + m.phase;
+      head.append(mid, time);
+
+      const grid = document.createElement("dl");
+      grid.className = "row-card__grid";
+      cardFields.slice(2).forEach(([label, val]) => {
+        const cell = document.createElement("div");
+        cell.className = "row-card__cell";
+        const dt = document.createElement("dt");
+        dt.textContent = label;
+        const dd = document.createElement("dd");
+        dd.textContent = String(val);
+        cell.append(dt, dd);
+        grid.appendChild(cell);
+      });
+      card.append(head, grid);
+      card.addEventListener("click", () => toggleDetailFor(cards, m));
+      cards.appendChild(card);
+    });
+
+    $("pg-info").textContent = `${state.page + 1} / ${pages}`;
+    $("pg-prev").disabled = state.page === 0;
+    $("pg-next").disabled = state.page >= pages - 1;
+  }
+
+  function detailHtml(m) {
+    if (m.fail) {
+      return "[解析失败] msg_info 不是合法的 MessagePack 数据。";
+    }
+    if (typeof m.raw === "string") return m.raw;
+    try { return JSON.stringify(m.raw, null, 2); } catch (e) { return String(m.raw); }
+  }
+
+  function toggleDetail(tr, m) {
+    const next = tr.nextElementSibling;
+    if (next && next.classList.contains("detail-row")) {
+      next.remove();
+      tr.style.background = "";
+      return;
+    }
+    const detail = document.createElement("tr");
+    detail.className = "detail-row";
+    const td = document.createElement("td");
+    td.colSpan = 15;
+    const pre = document.createElement("pre");
+    const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    if (m.fail) {
+      pre.textContent = "[解析失败] msg_info 不是合法的 MessagePack 数据。";
+    } else {
+      const pretty = detailHtml(m);
+      pre.textContent = pretty;
+      if (typeof m.raw === "object" && m.raw !== null) {
+        pre.innerHTML = esc(pretty).replace(/^(\s*)"([^"]+)":/gm, '$1<span class="k">"$2"</span>:');
+      }
+    }
+    td.appendChild(pre);
+    detail.appendChild(td);
+    tr.after(detail);
+    tr.style.background = "var(--color-paper-2)";
+  }
+
+  function toggleDetailFor(cards, m) {
+    const prev = cards.querySelector("pre.detail-pre");
+    if (prev) { prev.remove(); return; }
+    const pre = document.createElement("pre");
+    pre.className = "detail-pre";
+    pre.style.cssText = "font-family:var(--font-mono);font-size:var(--text-xs);line-height:1.6;color:var(--color-ink-2);background:var(--color-paper);border:var(--rule-weight) solid var(--color-rule);padding:var(--space-sm);margin:var(--space-xs) 0 0;white-space:pre-wrap;word-break:break-word;max-height:14rem;overflow:auto;";
+    pre.textContent = detailHtml(m);
+    cards.appendChild(pre);
+  }
+
+  /* ── 抛面曲线 + 距离坐标（真实经纬高字段驱动）────────── */
+  const NS = "http://www.w3.org/2000/svg";
+
+  function numOf(obj, keys) {
+    for (const k of keys) {
+      if (obj == null) continue;
+      const v = obj[k];
+      if (typeof v === "number" && Number.isFinite(v)) return v;
+      if (typeof v === "string" && v.trim() !== "" && Number.isFinite(parseFloat(v))) return parseFloat(v);
+    }
+    return null;
+  }
+
+  /* 收集带经纬高的点位（后端返回的轨迹序列 series，仅取当前筛选命中的导弹） */
+  function profilePoints() {
+    const pts = [];
+    /* 与工作区 filteredRows 一致的筛选：只取导弹ID / 发射平台筛选后命中的弹 */
+    const midSet = new Set(filteredRows().map(mapRow).map((m) => m.mid).filter((v) => v !== dash));
+    Object.keys(state.series || {}).forEach((mid) => {
+      if (!midSet.has(mid)) return;
+      const list = state.series[mid];
+      if (!Array.isArray(list)) return;
+      list.forEach((d) => {
+        if (!d || typeof d !== "object" || Array.isArray(d)) return;
+        const lon = numOf(d, ["经度", "lon", "Lon", "longitude", "经"]);
+        const lat = numOf(d, ["纬度", "维度", "lat", "Lat", "latitude", "纬"]);
+        const alt = numOf(d, ["高度", "海拔", "alt", "Alt", "H", "h"]);
+        if (lon !== null && lat !== null && alt !== null) pts.push({ mid, lon, lat, alt });
+      });
+    });
+    return pts;
+  }
+
+  function havKm(lon1, lat1, lon2, lat2) {
+    const R = 6371, toR = Math.PI / 180;
+    const dLat = (lat2 - lat1) * toR;
+    const dLon = (lon2 - lon1) * toR;
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * toR) * Math.cos(lat2 * toR) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+
+  const profileDialog = $("profile-dialog");
+
+  function closeProfile() {
+    if (REDUCED) { profileDialog.close(); return; }
+    profileDialog.classList.add("is-closing");
+    setTimeout(() => { profileDialog.classList.remove("is-closing"); profileDialog.close(); }, 185);
+  }
+  profileDialog.addEventListener("cancel", (e) => { e.preventDefault(); closeProfile(); });
+  profileDialog.addEventListener("click", (e) => { if (e.target === profileDialog) closeProfile(); });
+  $("profile-close").addEventListener("click", closeProfile);
+  profileDialog.addEventListener("close", () => {
+    const app = document.querySelector(".app");
+    if (app) app.inert = false;
+  });
+
+  function renderProfile() {
+    const pts = profilePoints();
+    const chart = $("profile-chart");
+    const empty = $("profile-empty");
+    $("profile-echo").textContent = state.selected
+      ? `表 ${state.selected.name} · 发射点高度 ${pts.length ? Math.round(pts[0].alt).toLocaleString("zh-CN") : "—"} m · 顶点 ${pts.length ? Math.round(Math.max(...pts.map((p) => p.alt))).toLocaleString("zh-CN") : "—"} m · 轨迹点 ${pts.length} 个 · 真实数据`
+      : "";
+
+    if (pts.length < 2) {
+      chart.hidden = true;
+      $("dist-section").hidden = true;
+      empty.hidden = false;
+      profileDialog.showModal();
+      profileDialog.focus();
+      return;
+    }
+    chart.hidden = false;
+    empty.hidden = true;
+
+    const groups = new Map();
+    pts.forEach((p) => {
+      if (!groups.has(p.mid)) groups.set(p.mid, []);
+      groups.get(p.mid).push(p);
+    });
+    const series = [...groups.values()].map((g) => {
+      let range = 0;
+      const poly = g.map((p, i) => {
+        if (i > 0) range += havKm(g[i - 1].lon, g[i - 1].lat, p.lon, p.lat);
+        return { r: range, alt: p.alt, lon: p.lon, lat: p.lat };
+      });
+      return { mid: g[0].mid, poly };
+    });
+
+    const maxRange = Math.max(...series.flatMap((s) => s.poly.map((p) => p.r))) || 1;
+    const maxAlt = Math.max(...series.flatMap((s) => s.poly.map((p) => p.alt))) || 1;
+
+    const W = 640, H = 320, M = { l: 52, r: 14, t: 16, b: 34 };
+    const iw = W - M.l - M.r, ih = H - M.t - M.b;
+    const px = (r) => M.l + (r / (maxRange * 1.05)) * iw;
+    const py = (a) => M.t + ih - (a / (maxAlt * 1.1)) * ih;
+    const add = (parent, name, attrs, text) => {
+      const el = document.createElementNS(NS, name);
+      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+      if (text !== undefined) el.textContent = text;
+      parent.appendChild(el);
+      return el;
+    };
+
+    const grid = $("profile-grid"), paths = $("profile-paths");
+    const markers = $("profile-markers"), labels = $("profile-labels");
+    grid.textContent = ""; paths.textContent = "";
+    markers.textContent = ""; labels.textContent = "";
+
+    for (let i = 0; i <= 4; i++) {
+      const av = (maxAlt * 1.1 * i) / 4;
+      add(grid, "line", { x1: M.l, x2: W - M.r, y1: py(av), y2: py(av), stroke: "var(--color-rule)", "stroke-width": 1 });
+      add(labels, "text", { x: M.l - 6, y: py(av) + 3, "text-anchor": "end" }, Math.round(av).toLocaleString("zh-CN"));
+    }
+    for (let i = 0; i <= 4; i++) {
+      const rv = (maxRange * 1.05 * i) / 4;
+      add(labels, "text", { x: px(rv), y: H - M.b + 14, "text-anchor": "middle" }, rv.toFixed(1));
+    }
+    add(labels, "text", { x: W - M.r, y: H - 6, "text-anchor": "end" }, "水平距离 km");
+    add(labels, "text", { x: M.l, y: 12 }, "高度 m");
+
+    /* 发射点高度参考线：让曲线起点的高度一目了然（纵轴从 0 起，但起点在 838m 而非 0） */
+    const launchAlt = series[0].poly[0].alt;
+    add(markers, "line", {
+      x1: M.l, x2: W - M.r, y1: py(launchAlt), y2: py(launchAlt),
+      stroke: "var(--color-rule-2)", "stroke-width": 1, "stroke-dasharray": "2 3",
+    });
+    add(labels, "text", { x: W - M.r, y: py(launchAlt) - 4, "text-anchor": "end" },
+      "发射点 " + Math.round(launchAlt).toLocaleString("zh-CN") + " m");
+
+    const STROKES = ["var(--color-ink)", "var(--color-accent)", "var(--color-neutral)", "var(--color-muted)"];
+    profileChart = { series, px, py, W, H, M, STROKES };
+    series.forEach((s, si) => {
+      const stroke = STROKES[si % STROKES.length];
+      const d = "M" + s.poly.map((p) => `${px(p.r).toFixed(1)},${py(p.alt).toFixed(1)}`).join(" ");
+      const path = add(paths, "path", {
+        d, fill: "none", stroke,
+        "stroke-width": 1.5,
+        "data-i": String(si),
+        class: "traj-path",
+      });
+      path.style.transition = REDUCED ? "none" : "opacity 160ms ease, stroke-width 160ms ease";
+    });
+
+    const legend = $("profile-legend");
+    legend.textContent = "";
+    series.forEach((s, si) => {
+      const span = document.createElement("span");
+      span.dataset.i = String(si);
+      span.className = "legend-item";
+      const i = document.createElement("i");
+      i.style.borderTopColor = STROKES[si % STROKES.length];
+      i.style.borderTopStyle = "solid";
+      span.append(i, document.createTextNode(s.mid));
+      legend.appendChild(span);
+    });
+
+    distSeries = series;
+    distMissiles = series.map((s) => s.mid);
+    const distSel = $("dist-mid");
+    distSel.textContent = "";
+    distMissiles.forEach((mid, i) => {
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = mid;
+      distSel.appendChild(opt);
+    });
+    if (distIndex >= distMissiles.length) distIndex = 0;
+    distSel.value = String(distIndex);
+    renderDistFor(series, distIndex);
+    highlightProfileSeries(distIndex);
+    $("dist-section").hidden = false;
+
+    const app = document.querySelector(".app");
+    if (app) app.inert = true;
+    profileDialog.showModal();
+    profileDialog.focus();
+  }
+
+  function atDistOn(pts, total, d) {
+    const last = pts[pts.length - 1];
+    if (d <= 0) return { lon: pts[0].lon, lat: pts[0].lat, alt: pts[0].alt };
+    if (d >= total) return { lon: last.lon, lat: last.lat, alt: last.alt };
+    for (let i = 1; i < pts.length; i++) {
+      if (pts[i].r >= d) {
+        const a = pts[i - 1], b = pts[i];
+        const t = (d - a.r) / (b.r - a.r || 1);
+        return {
+          lon: a.lon + (b.lon - a.lon) * t,
+          lat: a.lat + (b.lat - a.lat) * t,
+          alt: a.alt + (b.alt - a.alt) * t,
+        };
+      }
+    }
+    return { lon: last.lon, lat: last.lat, alt: last.alt };
+  }
+
+  function updateDistCell(group, i, lonEl, latEl, altEl) {
+    const ctx = distCtx;
+    const v = DISTS[group][i];
+    lonEl.classList.remove("muted");
+    latEl.classList.remove("muted");
+    altEl.classList.remove("muted");
+    if (!ctx || !Number.isFinite(v) || v <= 0 || v > ctx.total) {
+      lonEl.textContent = "—";
+      latEl.textContent = "—";
+      altEl.textContent = "—";
+      lonEl.classList.add("muted");
+      latEl.classList.add("muted");
+      altEl.classList.add("muted");
+      return;
+    }
+    const along = group === "launch" ? v : ctx.total - v;
+    const p = atDistOn(ctx.pts, ctx.total, along);
+    lonEl.textContent = p.lon.toFixed(5);
+    latEl.textContent = p.lat.toFixed(5);
+    altEl.textContent = Math.round(p.alt).toLocaleString("zh-CN");
+  }
+
+  function distRow(group, i, val) {
+    const row = document.createElement("div");
+    row.className = "dist__row";
+    const input = document.createElement("input");
+    input.className = "dist__input";
+    input.type = "text";
+    input.inputMode = "decimal";
+    input.autocomplete = "off";
+    input.placeholder = "km";
+    input.value = val === null ? "" : String(val);
+    input.setAttribute("aria-label", group === "launch" ? "距发射点距离（km）" : "距目标点距离（km）");
+    const lon = document.createElement("span");
+    lon.className = "dist__coord";
+    lon.setAttribute("aria-label", "经度");
+    const lat = document.createElement("span");
+    lat.className = "dist__coord";
+    lat.setAttribute("aria-label", "纬度");
+    const alt = document.createElement("span");
+    alt.className = "dist__coord";
+    alt.setAttribute("aria-label", "高度（m）");
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "dist__del";
+    del.textContent = "✕";
+    del.setAttribute("aria-label", "删除该距离");
+    input.addEventListener("input", () => {
+      const v = parseFloat(input.value);
+      DISTS[group][i] = Number.isFinite(v) && v > 0 ? v : null;
+      updateDistCell(group, i, lon, lat, alt);
+      lastDistData = buildDistData();
+    });
+    del.addEventListener("click", () => {
+      DISTS[group].splice(i, 1);
+      rebuildDistGroup(group);
+      lastDistData = buildDistData();
+    });
+    updateDistCell(group, i, lon, lat, alt);
+    row.append(input, lon, lat, alt, del);
+    return row;
+  }
+
+  function rebuildDistGroup(group) {
+    const wrap = $(`dist-rows-${group}`);
+    wrap.textContent = "";
+    DISTS[group].forEach((val, i) => wrap.appendChild(distRow(group, i, val)));
+  }
+
+  function buildDistData() {
+    const ctx = distCtx;
+    const mk = (group, list) => list.map((v) => {
+      if (!ctx || !Number.isFinite(v) || v <= 0 || v > ctx.total) {
+        return { distanceKm: Number.isFinite(v) ? v : null, outOfRange: true };
+      }
+      const along = group === "launch" ? v : ctx.total - v;
+      const p = atDistOn(ctx.pts, ctx.total, along);
+      return { distanceKm: v, lon: +p.lon.toFixed(5), lat: +p.lat.toFixed(5), alt: Math.round(p.alt) };
+    });
+    return {
+      missile: ctx ? ctx.mid : null,
+      totalRangeKm: ctx ? +ctx.total.toFixed(1) : null,
+      fromLaunch: mk("launch", DISTS.launch),
+      fromTarget: mk("target", DISTS.target),
+    };
+  }
+
+  function renderDistFor(series, idx) {
+    const s = series[idx];
+    if (!s) return;
+    const pts = s.poly;
+    const total = pts[pts.length - 1].r;
+    distCtx = { pts, total, mid: s.mid };
+
+    /* 末点位置读数与摘要随所选导弹更新 */
+    const lastPt = pts[pts.length - 1];
+    $("pos-lon").firstChild.textContent = lastPt.lon.toFixed(5);
+    $("pos-lat").firstChild.textContent = lastPt.lat.toFixed(5);
+    $("pos-alt").firstChild.textContent = Math.round(lastPt.alt).toString();
+    const apex = Math.round(Math.max(...pts.map((p) => p.alt))).toLocaleString("zh-CN");
+    $("profile-echo").textContent =
+      `表 ${state.selected ? state.selected.name : ""} · 导弹 ${s.mid} · 发射点高度 ${Math.round(pts[0].alt).toLocaleString("zh-CN")} m · 顶点 ${apex} m · 轨迹点 ${pts.length} 个 · 真实数据`;
+    const label = document.querySelector(".pos-label");
+    if (label) label.textContent = `末点位置 · 导弹 ${s.mid} 最后一点（真实数据）`;
+
+    rebuildDistGroup("launch");
+    rebuildDistGroup("target");
+    $("dist-note").textContent =
+      `按 ${s.mid} 的地面轨迹计算 · 轨迹总长 ${total.toFixed(1)} km · 相邻采样点线性插值经度 / 纬度 / 高度` +
+      (series.length > 1 ? ` · 共 ${series.length} 组，可切换` : "");
+    lastDistData = buildDistData();
+  }
+
+  /** 下拉切换时：选中弹曲线加粗高亮，其余压暗；顶点/发射点标注跟随选中弹 */
+  function highlightProfileSeries(idx) {
+    if (!profileChart) return;
+    const { series, px, py, W, M, STROKES } = profileChart;
+    const paths = $("profile-paths");
+    const markers = $("profile-markers");
+    const labels = $("profile-labels");
+
+    paths.querySelectorAll(".traj-path").forEach((el) => {
+      const i = Number(el.getAttribute("data-i"));
+      const on = i === idx;
+      el.setAttribute("stroke-width", on ? "2.5" : "1.25");
+      el.style.opacity = on ? "1" : "0.28";
+      if (on && el.parentNode) el.parentNode.appendChild(el); /* 选中线置顶 */
+    });
+
+    $("profile-legend").querySelectorAll(".legend-item").forEach((el) => {
+      const on = Number(el.dataset.i) === idx;
+      el.style.opacity = on ? "1" : "0.4";
+      el.style.fontWeight = on ? "600" : "400";
+    });
+
+    /* 清掉旧的顶点/发射点动态标注（保留固定网格与发射点高度参考线） */
+    markers.querySelectorAll(".dyn-marker").forEach((el) => el.remove());
+    labels.querySelectorAll(".dyn-label").forEach((el) => el.remove());
+
+    const s = series[idx];
+    if (!s || !s.poly || !s.poly.length) return;
+    const stroke = STROKES[idx % STROKES.length];
+    const NSU = NS;
+
+    const mk = (parent, name, attrs, text, cls) => {
+      const el = document.createElementNS(NSU, name);
+      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+      if (cls) el.setAttribute("class", cls);
+      if (text !== undefined) el.textContent = text;
+      parent.appendChild(el);
+      return el;
+    };
+
+    const peak = s.poly.reduce((a, b) => (b.alt > a.alt ? b : a), s.poly[0]);
+    mk(markers, "line", {
+      x1: px(peak.r), x2: px(peak.r),
+      y1: py(peak.alt), y2: py(0),
+      stroke: "var(--color-rule-2)", "stroke-dasharray": "4 4",
+    }, undefined, "dyn-marker");
+    mk(labels, "text", {
+      x: Math.min(px(peak.r) + 6, W - M.r - 90), y: py(peak.alt) + 12,
+    }, "顶点 " + Math.round(peak.alt).toLocaleString("zh-CN") + " m", "dyn-label");
+
+    const first = s.poly[0];
+    mk(markers, "rect", {
+      x: px(first.r) - 2.5, y: py(first.alt) - 2.5,
+      width: 5, height: 5, fill: stroke,
+    }, undefined, "dyn-marker");
+    mk(labels, "text", {
+      x: px(first.r) + 6, y: py(first.alt) - 6,
+    }, "发射点 " + Math.round(first.alt).toLocaleString("zh-CN") + " m", "dyn-label");
+  }
+
+  /* ── 导出所选导弹弹道 Excel（SpreadsheetML .xls，无需外部库）── */
+  function xmlEsc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function xlsCell(value, type) {
+    const t = type || (typeof value === "number" && Number.isFinite(value) ? "Number" : "String");
+    const v = value == null || value === dash ? "" : value;
+    if (t === "Number" && (v === "" || !Number.isFinite(Number(v)))) {
+      return `<Cell><Data ss:Type="String">${xmlEsc(v)}</Data></Cell>`;
+    }
+    return `<Cell><Data ss:Type="${t}">${xmlEsc(v)}</Data></Cell>`;
+  }
+
+  function downloadBlob(blob, filename) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function exportTrajectoryExcel() {
+    if (!distSeries || !distSeries[distIndex]) return;
+    const s = distSeries[distIndex];
+    const mid = s.mid;
+    const rawList = (state.series && state.series[mid]) || [];
+    if (!rawList.length) return;
+
+    const headers = [
+      "当前时间", "导弹ID", "导弹类型", "发射平台",
+      "经度(°)", "纬度(°)", "高度(m)",
+      "北向速度(m/s)", "天向速度(m/s)", "东向速度(m/s)",
+      "滚转角(°)", "俯仰角(°)", "偏航角(°)",
+      "当前阶段", "合速度(m/s)", "水平距离(km)",
+    ];
+
+    const rows = rawList.map((raw, i) => {
+      const m = mapRow(raw);
+      const r = s.poly[i] ? s.poly[i].r : null;
+      return [
+        m.time, m.mid, m.type, m.plat,
+        m.lon, m.lat, m.alt,
+        m.vn, m.vu, m.ve,
+        m.roll, m.pitch, m.yaw,
+        m.phase, m.speed,
+        r == null ? null : +r.toFixed(3),
+      ];
+    });
+
+    const title = `弹道数据_${mid}`;
+    const xml = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+  <Title>${xmlEsc(title)}</Title>
+  <Author>DataCollect</Author>
+ </DocumentProperties>
+ <ExcelWorkbook xmlns="urn:schemas-microsoft-com:office:excel">
+  <ProtectStructure>False</ProtectStructure>
+  <ProtectWindows>False</ProtectWindows>
+ </ExcelWorkbook>
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Center"/>
+   <Font ss:FontName="宋体" x:CharSet="134" ss:Size="11"/>
+  </Style>
+  <Style ss:ID="sHeader">
+   <Font ss:FontName="宋体" x:CharSet="134" ss:Size="11" ss:Bold="1"/>
+   <Interior ss:Color="#D9E2F3" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+  </Style>
+  <Style ss:ID="sNum">
+   <NumberFormat ss:Format="0.000"/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="${xmlEsc(mid)}">
+  <Table ss:ExpandedColumnCount="${headers.length}" ss:ExpandedRowCount="${rows.length + 1}" x:FullColumns="1" x:FullRows="1">
+${`   <Row>${headers.map((h) => `<Cell ss:StyleID="sHeader"><Data ss:Type="String">${xmlEsc(h)}</Data></Cell>`).join("")}</Row>\n` +
+rows.map((r) => `   <Row>${r.map((v) => xlsCell(v)).join("")}</Row>`).join("\n")}
+  </Table>
+  <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
+   <Selected/>
+   <FreezePanes/>
+   <FrozenNoSplit/>
+   <SplitHorizontal>1</SplitHorizontal>
+   <TopRowBottomPane>1</TopRowBottomPane>
+   <ActivePane>2</ActivePane>
+  </WorksheetOptions>
+ </Worksheet>
+</Workbook>`;
+
+    const table = state.selected ? state.selected.name : "table";
+    downloadBlob(
+      new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8" }),
+      `${table}_${mid}_弹道数据.xls`
+    );
+  }
+
+  /* ── 事件 ────────────────────────────────────────────── */
+  $("table-filter").addEventListener("input", () => {
+    state.query = $("table-filter").value;
+    renderRail();
+  });
+
+  $("table-select").addEventListener("change", () => {
+    const t = state.tables.find((x) => x.name === $("table-select").value);
+    if (t) selectTable(t);
+  });
+
+  $("btn-refresh").addEventListener("click", () => {
+    refresh(true);
+    if (state.selected) loadRows();
+  });
+
+  $("platform-filter").addEventListener("change", () => {
+    state.plat = $("platform-filter").value;
+    state.page = 0;
+    renderWorkspace();
+  });
+
+  $("mid-filter").addEventListener("change", () => {
+    state.mid = $("mid-filter").value;
+    state.page = 0;
+    renderWorkspace();
+  });
+
+  $("btn-parse").addEventListener("click", () => { if (state.selected) loadRows(); });
+
+  $("btn-profile").addEventListener("click", () => { if (state.selected) renderProfile(); });
+
+  $("btn-export").addEventListener("click", () => {
+    if (!state.selected) return;
+    const rows = filteredRows().map(mapRow).map((m) => ({
+      id: undefined, topic: undefined, msg_length: undefined,
+      time: m.time, mid: m.mid, type: m.type, plat: m.plat,
+      lon: m.lon, lat: m.lat, alt: m.alt,
+      vn: m.vn, vu: m.vu, ve: m.ve,
+      roll: m.roll, pitch: m.pitch, yaw: m.yaw,
+      phase: m.phase, speed: m.speed,
+    }));
+    const payload = {
+      table: state.selected.name,
+      filtered: rows.length,
+      rows,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = state.selected.name + "_feature_points.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  $("pg-prev").addEventListener("click", () => { if (state.page > 0) { state.page--; renderWorkspace(); } });
+  $("pg-next").addEventListener("click", () => { if (state.selected) { state.page++; renderWorkspace(); } });
+
+  $("dist-mid").addEventListener("change", () => {
+    const v = Number($("dist-mid").value);
+    if (Number.isInteger(v) && distSeries && distSeries[v]) {
+      distIndex = v;
+      renderDistFor(distSeries, v);
+      highlightProfileSeries(v);
+    }
+  });
+
+  document.querySelectorAll("[data-add]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const group = btn.dataset.add;
+      DISTS[group].push(null);
+      rebuildDistGroup(group);
+      lastDistData = buildDistData();
+      const wrap = $(`dist-rows-${group}`);
+      const inputs = wrap.querySelectorAll(".dist__input");
+      if (inputs.length) inputs[inputs.length - 1].focus();
+    });
+  });
+
+  $("btn-copy-dist").addEventListener("click", async () => {
+    if (!lastDistData) return;
+    const text = JSON.stringify(lastDistData, null, 2);
+    const btn = $("btn-copy-dist");
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+    const orig = btn.textContent;
+    btn.textContent = "已复制";
+    setTimeout(() => { btn.textContent = orig; }, 2500);
+  });
+
+  $("btn-export-xls").addEventListener("click", () => {
+    exportTrajectoryExcel();
+    const btn = $("btn-export-xls");
+    const orig = btn.textContent;
+    btn.textContent = "已导出";
+    setTimeout(() => { btn.textContent = orig; }, 2000);
+  });
+
+  /* ── 初始 ────────────────────────────────────────────── */
+  renderRail();
+  renderControls();
+  refresh(true);
+})();
+</script>
+</body>
+</html>

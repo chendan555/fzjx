@@ -1,0 +1,21 @@
+# deps / build
+node_modules/
+dist/
+target/
+.m2/
+m2repo/
+
+# IDE / local tools
+.idea/
+*.iml
+.hallmark/
+.finesse/
+.dsh/
+.claude/
+.npm-cache/
+.npm-cache-ui/
+
+# logs / os
+*.log
+.DS_Store
+Thumbs.db
